@@ -6,49 +6,87 @@ from pygame.locals import*
 import time
 from timeit import default_timer as timer
 
-def drawCircle(self):
-    pygame.draw.circle(screen, self.color, (self.x, self.y), self.size, self.thickness)
+# initializes physical variables
+gravity = 0.980665 # gravity is scaled down for simulation
+
+vel = 0.0
+permVel = False # permVel ensures no more movement once ball stops bouncing
+permVelThreshold = 3 # threshold for how much velocity at bottom portion before stopping
+
+totalTime = 0.0
+start = 0.0
+end = 0.0
+timeSlept = 0.00001
+timeMultiplier = 0.75
+
+shouldChangeDir = True
+bounciness = -0.7 # this should be a value between 0 and -1 (exclusive)
+                  # higher magnitude vals for more bounce, lower for less
+                  # technically works for values outside of this range, but does not follow reality
+
+floor = 700
+
+# starting coordinates
+startX = 300
+startY = 100
+size = 15
+
+isRunning = True
 
 # initialization for the GUI
 pygame.init()
 screen = pygame.display.set_mode((600, 700))
 pygame.display.set_caption("Gravity Simulation")
+ball = Particle(startX, startY, size)
 
-ball = Particle(300, 100, 15)
 
-# initializes physical variables
-g = 0.980665
-vel = 0.0
-totalTime = 0.0
-start = 0.0
-end = 0.0
-
-while True:
-    # begins simulation loop
+# begins simulation loop
+while isRunning:
+    # begin a default screen fill
     screen.fill((0,0,0))
     for event in pygame.event.get():
         if event.type == QUIT:
             pygame.quit()
 
     # create bouncing effect
-    if ball.y == 700 or ball.y > 700:
-        ball.y = 700
-        vel = vel * -0.5
-        totalTime = totalTime * 0.75
+    if ball.y >= floor:
+        # we only want to change the direction of the ball if it's already going downward
+        if shouldChangeDir:
+            vel *= bounciness
+
+            # once we reach threshold in magnitude of velocity, we will activate permVel
+            if abs(vel) < permVelThreshold:
+                permVel = True
+
+            shouldChangeDir = False
+            totalTime *= timeMultiplier # this multiplier only exists to ensure further realism in bouncing
+    else:
+        # if the ball is no longer touching the floor, it can now change direction again
+            # once the ball touches the floor again
+        shouldChangeDir = True
 
     # tracks total time amount taken so far in loop
-    totalTime = totalTime + (end - start)
+    # we do this because we want to track the previous frame's data whenever performing
+        # our final caclulation for the ball's y positioning
+    totalTime += end - start
     # kinematic equation to determine velocity after period of acceleration from gravity
-    vel = (vel)*(totalTime) + (1/2)*(g)*((totalTime)*(totalTime))
-    # time tracker
+    vel += gravity * totalTime
+
+    # time tracker, which will update this frame's data
     start = timer()
-    time.sleep(0.000001)
+    time.sleep(timeSlept)
     end = timer()
+
+    # if our permVel boolean has activated, then we'll always keep the ball on the floor
+    if permVel:
+        vel = 0
+
     # approximates where the ball's y position should be based on previous position and velocity's effect over
-    # period of time before acceleration changes the velocity and new timers are created
-    ball.y = int(ball.y + vel*(end - start))
+        # the period of time before acceleration influences the velocity and new timers are created
+    ball.y += vel * (end - start)
     ball.display(screen)
-    # refreshes screen
+
+    # refreshes screen for each frame
     pygame.display.update()
 
 
